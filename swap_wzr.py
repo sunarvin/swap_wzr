@@ -46,12 +46,12 @@ def get_text_section(filename: str):
             cmd, cmdsize = struct.unpack('II', buf)
             print('cmd 0x%X size %d' % (cmd, cmdsize))
 
-            if cmd == 25:  # LC_SEGMENT_64 0x19
+            if cmd == 25:  # segment type 25 (0x19 LC_SEGMENT_64)
                 buf = f.read(16)
                 seg_name = buf.decode('utf-8').rstrip('\0')
                 print('segment name:', seg_name)
 
-                if seg_name == '__TEXT':  # segment name is __TEXT
+                if seg_name == '__TEXT':  # hit the __TEXT segment
                     buf = f.read(48)
                     vmaddr, vmsize, fileoff, filesize, maxprot, initprot, nsects, flags = struct.unpack('4Q4I', buf)
 
@@ -62,7 +62,7 @@ def get_text_section(filename: str):
                         print('section name:', sec_name)
                         buf = f.read(16)  # jump off segment name
                         buf = f.read(48)
-                        if sec_name == '__text':
+                        if sec_name == '__text':  # hit the __text section
                             addr, size, offset, align, reloff, nreloc, flags, rsv1, rsv2, rsv3 = struct.unpack('2Q8I', buf)
 
                             f.seek(offset, 0)
@@ -84,7 +84,7 @@ def search_modify_offset(code_bytes: bytes, text_addr: int):
             # print("0x%x:\t%s\t%s" %(i.address, i.mnemonic, i.op_str))
             candidate.append(i)
 
-    # search for two adjoining (STP, WZR)
+    # search for two adjoining (STP, WZR) instruction
     prev = None
     for i in candidate:
         if (prev is not None) and (i.address-prev.address == 4):
@@ -92,6 +92,7 @@ def search_modify_offset(code_bytes: bytes, text_addr: int):
         else:
             prev = i
 
+    # two adjoining instructions are found
     if prev is not None and i is not None:
         print("0x%x:\t%s\t%s" % (prev.address, prev.mnemonic, prev.op_str))
         print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
@@ -105,12 +106,12 @@ def search_modify_offset(code_bytes: bytes, text_addr: int):
 
 def do_modify(filename: str, offset: int):
     with open(filename, 'rb+') as f:
-        # get bytes
+        # read 8 bytes
         f.seek(offset)
         eight_bytes = f.read(8)
 #       for byte in eight_bytes:
 #           print(hex(byte))
-        # write back to file
+        # swap and write back to file
         f.seek(offset)
         f.write(eight_bytes[4:8])
         f.write(eight_bytes[0:4])
